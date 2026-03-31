@@ -5,6 +5,7 @@ import { TranslationPanel } from "@/components/TranslationPanel";
 import { KeywordsPanel } from "@/components/KeywordsPanel";
 import { SummarySection } from "@/components/SummarySection";
 import { StreamInputPanel } from "@/components/StreamInputPanel";
+import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { useLectureAssistant } from "@/hooks/useLectureAssistant";
 
 const Index = () => {
@@ -67,6 +68,8 @@ const Index = () => {
           onPushChunk={pushTranscriptChunk}
           onReset={resetSession}
         />
+
+        <FileUploadPanel targetLanguage={state.targetLanguage} />
       </div>
     </div>
   );

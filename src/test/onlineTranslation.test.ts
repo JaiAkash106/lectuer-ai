@@ -1,5 +1,19 @@
-import { describe, expect, it } from "vitest";
-import { extractTranslatedText } from "@/lib/onlineTranslation";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  PartialTranslationError,
+  extractTranslatedText,
+  resetOnlineTranslationState,
+  translateTextOnline,
+  translateTextsOnline,
+} from "@/lib/onlineTranslation";
+
+const originalFetch = global.fetch;
+
+afterEach(() => {
+  global.fetch = originalFetch;
+  resetOnlineTranslationState();
+  vi.restoreAllMocks();
+});
 
 describe("onlineTranslation", () => {
   it("prefers a translated responseData result", () => {
@@ -62,5 +76,72 @@ describe("onlineTranslation", () => {
 
     expect(translated).toContain("\u0B87\u0BA8\u0BCD\u0BA4");
     expect(translated).not.toContain("QUERY LENGTH LIMIT EXCEEDED");
+  });
+
+  it("returns partial batch progress when a later translation request fails", async () => {
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        json: async () => ({
+          error: "OPENAI_API_KEY is not configured for the local translation route.",
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          responseData: {
+            translatedText: "\u0BAE\u0BC1\u0BA4\u0BB2\u0BCD \u0BB5\u0BBE\u0B95\u0BCD\u0B95\u0BBF\u0BAF\u0BAE\u0BCD.",
+          },
+        }),
+      } as Response)
+      .mockRejectedValueOnce(new Error("Network unavailable"));
+
+    let thrownError: unknown;
+
+    try {
+      await translateTextsOnline(["First sentence.", "Second sentence."], "en", "ta", {
+        requestSpacingMs: 0,
+      });
+    } catch (error) {
+      thrownError = error;
+    }
+
+    expect(thrownError).toBeInstanceOf(PartialTranslationError);
+    expect((thrownError as PartialTranslationError).partialResults).toEqual([
+      "\u0BAE\u0BC1\u0BA4\u0BB2\u0BCD \u0BB5\u0BBE\u0B95\u0BCD\u0B95\u0BBF\u0BAF\u0BAE\u0BCD.",
+    ]);
+    expect((thrownError as PartialTranslationError).completed).toBe(1);
+    expect((thrownError as PartialTranslationError).total).toBe(2);
+  });
+
+  it("prefers the OpenAI translation route when it returns a translation", async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        translatedText:
+          "\u0b87\u0baf\u0bb1\u0bcd\u0b95\u0bc8 \u0bae\u0bca\u0bb4\u0bbf \u0b9a\u0bc6\u0baf\u0bb2\u0bbe\u0b95\u0bcd\u0b95\u0bae\u0bcd \u0bae\u0ba9\u0bbf\u0ba4 \u0bae\u0bca\u0bb4\u0bbf\u0baf\u0bc8 \u0baa\u0bc1\u0bb0\u0bbf\u0ba8\u0bcd\u0ba4\u0bc1\u0b95\u0bca\u0bb3\u0bcd\u0bb3 \u0b89\u0ba4\u0bb5\u0bc1\u0b95\u0bbf\u0bb1\u0ba4\u0bc1.",
+      }),
+    } as Response);
+
+    const translated = await translateTextOnline(
+      "Natural language processing helps computers understand human language.",
+      "en",
+      "ta",
+    );
+
+    expect(translated).toContain(
+      "\u0b87\u0baf\u0bb1\u0bcd\u0b95\u0bc8 \u0bae\u0bca\u0bb4\u0bbf \u0b9a\u0bc6\u0baf\u0bb2\u0bbe\u0b95\u0bcd\u0b95\u0bae\u0bcd",
+    );
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/openai-translate",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
   });
 });

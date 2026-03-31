@@ -144,4 +144,22 @@ describe("lectureProcessor", () => {
     expect(translated).toContain("\u0B95\u0B9F\u0BB2\u0BCD");
     expect(translated).toContain("\u0BB5\u0BBF\u0BB1\u0BCD\u0B95\u0BBF\u0BB1\u0BBE\u0BB3\u0BCD");
   });
+
+  it("translates common NLP lecture terminology into Tamil for offline fallback", () => {
+    const translated = translateText(
+      "Natural language processing is a field of computer science and artificial intelligence.",
+      "en",
+      "ta",
+    );
+
+    expect(translated).toContain(
+      "\u0b87\u0baf\u0bb1\u0bcd\u0b95\u0bc8 \u0bae\u0bca\u0bb4\u0bbf \u0b9a\u0bc6\u0baf\u0bb2\u0bbe\u0b95\u0bcd\u0b95\u0bae\u0bcd",
+    );
+    expect(translated).toContain(
+      "\u0b95\u0ba3\u0bbf\u0ba9\u0bbf \u0b85\u0bb1\u0bbf\u0bb5\u0bbf\u0baf\u0bb2\u0bcd",
+    );
+    expect(translated).toContain(
+      "\u0b9a\u0bc6\u0baf\u0bb1\u0bcd\u0b95\u0bc8 \u0ba8\u0bc1\u0ba3\u0bcd\u0ba3\u0bb1\u0bbf\u0bb5\u0bc1",
+    );
+  });
 });
